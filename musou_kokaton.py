@@ -198,6 +198,7 @@ class NeoBeam:
         if n == 1:
             offsets = [0.0]
         else:
+            offsets = [0.0]
             step = 100.0 / (n - 1)  # -50 から +50 の合計幅 100 を n-1 分割
             offsets = [-50.0 + i * step for i in range(n)]
         return [Beam(bird, angle0=o) for o in offsets]
