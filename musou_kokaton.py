@@ -307,8 +307,8 @@ def main():
                 return 0
             # スペースキーで通常ビーム
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                # 左Shiftが押されている間は弾幕（NeoBeam）を発動
-                if key_lst[pg.K_LSHIFT]:
+                # event.mod を使って修飾キー（Shift）を検出する方が安定する
+                if event.mod & pg.KMOD_LSHIFT:
                     neo_beams = NeoBeam.gen_beams(bird, num=5)
                     beams.add(*neo_beams)
                 else:
