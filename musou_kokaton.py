@@ -242,6 +242,46 @@ class Score:
         screen.blit(self.image, self.rect)
 
 
+class EMP:
+    """
+    電磁パルス(EMP)攻撃に関するクラス
+    """
+    def __init__(self, emys: pg.sprite.Group, bombs: pg.sprite.Group, screen: pg.Surface):
+       #EMP発動時の処理
+        self.emys = emys #引数1 emys:Enemyインスタンス
+        self.bombs = bombs #引数2 bombs:Bombインスタンス
+        self.screen = screen #引数3 screen:画面Surface
+        self.activate()
+    def activate(self):
+        """
+        EMPを発動し、敵機と爆弾を無効化
+        """
+        #敵機を無効化 
+        for emy in self.emys:
+            emy.interval = float("inf")  # 爆弾投下不可
+            #ラプラシアンフィルタをかける
+            try:
+                emy.image = pg.transform.laplacian(emy.image)
+            except Exception:
+                #pygameのlaplacianが未対応の環境でグレースケール化
+                arr = pg.surfarray.array3d(emy.image)
+                gray = arr.mean(axis=2)
+                pg.surfarray.blit_array(emy.image, pg.surfarray.make_surface(gray))
+
+        # 爆弾を無効化
+        for bomb in self.bombs:
+            bomb.speed /= 2      #速度半減
+            bomb.state = "inactive"  #爆発しないように
+
+        #EMP効果の視覚表現
+        overlay = pg.Surface((WIDTH, HEIGHT))
+        overlay.fill((255, 255, 0))  #黄色
+        overlay.set_alpha(100)  #半透明
+        self.screen.blit(overlay, (0, 0))
+        pg.display.update()
+        pg.time.delay(50)  #0.05秒表示
+
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -261,10 +301,15 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
-            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                beams.add(Beam(bird))
+            elif event.type == pg.KEYDOWN:
+                if event.key == pg.K_SPACE:
+                    beams.add(Beam(bird))
+                        #EMP発動条件
+                elif event.key == pg.K_e and score.value >= 20:
+                   EMP(emys, bombs, screen)  # EMP発動
+                   score.value -= 20         # スコアを消費
         screen.blit(bg_img, [0, 0])
-
+            
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
 
