@@ -141,14 +141,16 @@ class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird):
+    def __init__(self, bird: Bird, angle0: float = 0.0):
         """
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん
+        引数 angle0：こうかとんの向きに加える角度オフセット（度）。デフォルトは 0.0
         """
         super().__init__()
         self.vx, self.vy = bird.dire
         angle = math.degrees(math.atan2(-self.vy, self.vx))
+        angle += angle0
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 1.0)
         self.vx = math.cos(math.radians(angle))
         self.vy = -math.sin(math.radians(angle))
@@ -166,6 +168,40 @@ class Beam(pg.sprite.Sprite):
         if check_bound(self.rect) != (True, True):
             self.kill()
 
+
+class NeoBeam:
+    """
+    弾幕（ネオビーム）生成ユーティリティクラス。
+    指定したビーム数に応じて，-50°〜+50° の範囲で角度を分配し，
+    その角度オフセットを指定した `Beam` インスタンス群を生成して返す。
+    """
+    def __init__(self, bird: Bird, num: int = 5):
+        """
+        NeoBeam インスタンスは内部にビームリストを持つ（主に互換性のため）。
+        引数 bird：発射元こうかとん
+        引数 num：生成するビームの数（デフォルト 5）
+        """
+        self.bird = bird
+        self.num = max(1, int(num))
+        self.beams = self.gen_beams(bird, self.num)
+
+    @staticmethod  # メソッドを静的メソッドにする
+    def gen_beams(bird: Bird, num: int = 5) -> list:
+        """
+        指定した数だけ角度を -50° から +50° の範囲で等間隔に割り当て，
+        その角度オフセットを使ってBeamインスタンスを生成してリストで返す。
+        引数 bird：発射元こうかとん
+        引数 num：生成するビームの数
+        戻り値：Beam インスタンスのリスト
+        """
+        n = max(1, int(num))
+        if n == 1:
+            offsets = [0.0]
+        else:
+            step = 100.0 / (n - 1)  # -50 から +50 の合計幅 100 を n-1 分割
+            offsets = [-50.0 + i * step for i in range(n)]
+        return [Beam(bird, angle0=o) for o in offsets]
+        
 
 class Explosion(pg.sprite.Sprite):
     """
@@ -261,8 +297,14 @@ def main():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
+            # スペースキーで通常ビーム
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                beams.add(Beam(bird))
+                # 左Shiftが押されている間は弾幕（NeoBeam）を発動
+                if key_lst[pg.K_LSHIFT]:
+                    neo_beams = NeoBeam.gen_beams(bird, num=5)
+                    beams.add(*neo_beams)
+                else:
+                    beams.add(Beam(bird))
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
