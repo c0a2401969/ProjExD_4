@@ -90,6 +90,8 @@ class Bird(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
+        self.state = "normal"  # 通常状態
+        self.hyper_life = 0    # 無敵時間
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -117,6 +119,11 @@ class Bird(pg.sprite.Sprite):
         if not (sum_mv[0] == 0 and sum_mv[1] == 0):
             self.dire = tuple(sum_mv)
             self.image = self.imgs[self.dire]
+        if self.state == "hyper":
+            self.image = pg.transform.laplacian(self.image)
+            self.hyper_life -= 1
+            if self.hyper_life < 0:
+                self.state = "normal"
         screen.blit(self.image, self.rect)
 
 
@@ -333,6 +340,12 @@ def main():
                 elif event.key == pg.K_e and score.value >= 20:
                    EMP(emys, bombs, screen)  # EMP発動
                    score.value -= 20         # スコアを消費
+            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT: # 右Shiftキー押下でhyperモード
+                if score.value >= 100:
+                    score.value -= 100
+                    bird.state = "hyper"
+                    bird.hyper_life = 500
+        screen.blit(bg_img, [0, 0])
 
         key_lst = pg.key.get_pressed()
             
@@ -363,15 +376,18 @@ def main():
         for bomb in pg.sprite.groupcollide(bombs, gravitys, True, False).keys():  # ビームと衝突した爆弾リスト
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
-     
-
-
-        for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+    
+        for bomb in pg.sprite.spritecollide(bird, bombs, True): # こうかとんと衝突した爆弾リスト
+            if bird.state == "hyper":
+                exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+                score.value += 1  # 1点アップ
+            else:
+                # こうかとんと衝突した爆弾リスト
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                score.update(screen) # 画面更新
+                pg.display.update() # 画面更新
+                time.sleep(2)
+                return
 
         bird.update(key_lst, screen)
         beams.update()
