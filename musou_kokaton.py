@@ -166,14 +166,16 @@ class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird):
+    def __init__(self, bird: Bird, angle0: float = 0.0):
         """
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん
+        引数 angle0：こうかとんの向きに加える角度オフセット（度）。デフォルトは 0.0
         """
         super().__init__()
         self.vx, self.vy = bird.dire
         angle = math.degrees(math.atan2(-self.vy, self.vx))
+        angle += angle0
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 1.0)
         self.vx = math.cos(math.radians(angle))
         self.vy = -math.sin(math.radians(angle))
@@ -191,6 +193,48 @@ class Beam(pg.sprite.Sprite):
         if check_bound(self.rect) != (True, True):
             self.kill()
 
+
+class NeoBeam:
+    """
+    弾幕（ネオビーム）生成ユーティリティクラス。
+    指定したビーム数に応じて，-50°〜+50° の範囲で角度を分配し，
+    その角度オフセットを指定した `Beam` インスタンス群を生成して返す。
+    """
+    def __init__(self, bird: Bird, num: int = 5):
+        """
+        NeoBeam インスタンスは内部にビームリストを持つ（主に互換性のため）。
+        引数 bird：発射元こうかとん
+        引数 num：生成するビームの数（デフォルト 5）
+        """
+        self.bird = bird
+        self.num = max(1, int(num))
+        self.beams = self.gen_beams(bird, self.num)
+
+    @staticmethod  # メソッドを静的メソッドにする
+    def gen_beams(bird: Bird, num: int = 5) -> list:
+        """
+        指定した数だけ角度を -50° から +50° の範囲で等間隔に割り当て，
+        その角度オフセットを使ってBeamインスタンスを生成してリストで返す。
+        引数 bird：発射元こうかとん
+        引数 num：生成するビームの数
+        戻り値：Beam インスタンスのリスト
+        """
+        n = max(1, int(num))
+        if n == 1:
+            offsets = [0.0]
+        else:
+            offsets = None
+            for step in range(1, 101):
+                vals = list(range(-50, 51, step))
+                if len(vals) == n:
+                    offsets = vals
+                    break
+            if offsets is None:
+                step = max(1, round(100.0 / (n - 1)))
+                offsets = [-50 + i * step for i in range(n)]
+                offsets[-1] = 50
+        return [Beam(bird, angle0=o) for o in offsets]
+        
 
 class Explosion(pg.sprite.Sprite):
     """
@@ -375,6 +419,14 @@ def main():
                     score.value -= 100
                     bird.state = "hyper"
                     bird.hyper_life = 500
+            # スペースキーで通常ビーム
+            if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+                # event.mod を使って修飾キー（Shift）を検出する方が安定する
+                if event.mod & pg.KMOD_LSHIFT:
+                    neo_beams = NeoBeam.gen_beams(bird, num=5)
+                    beams.add(*neo_beams)
+                else:
+                    beams.add(Beam(bird))
         screen.blit(bg_img, [0, 0])
 
         key_lst = pg.key.get_pressed()
